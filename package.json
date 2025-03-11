@@ -1,0 +1,36 @@
+{
+    "name": "mcp-demo",
+    "version": "1.0.0",
+    "description": "A demo project for MCP using TypeScript SDK",
+    "main": "dist/server.js",
+    "type": "module",
+    "scripts": {
+        "build": "tsc && copyfiles -u 1 src/test.txt dist",
+        "start:server": "node --es-module-specifier-resolution=node dist/server.js",
+        "start:client": "node --es-module-specifier-resolution=node dist/client.js",
+        "dev:server": "ts-node src/server.ts",
+        "dev:client": "ts-node --esm src/client.ts",
+        "prestart:client": "npm run build",
+        "clean": "rm -rf dist"
+    },
+    "keywords": [
+        "mcp",
+        "typescript",
+        "file-access"
+    ],
+    "author": "Diameter",
+    "license": "MIT",
+    "dependencies": {
+        "@modelcontextprotocol/sdk": "latest",
+        "axios": "^1.8.2",
+        "zod": "^3.22.4"
+    },
+    "devDependencies": {
+        "@types/node": "^20.11.0",
+        "copyfiles": "^2.4.1",
+        "nodemon": "^3.1.9",
+        "ts-node": "^10.9.2",
+        "tsx": "^4.19.3",
+        "typescript": "^5.3.3"
+    }
+}
