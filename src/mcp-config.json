@@ -1,0 +1,33 @@
+{
+    "defaultServer": "localFileServer",
+    "mcpServers": {
+        "localFileServer": {
+            "command": "node",
+            "args": [
+                "dist/server.js"
+            ]
+        },
+        "everything": {
+            "command": "npx",
+            "args": [
+                "-y",
+                "@modelcontextprotocol/server-everything"
+            ]
+        },
+        "memory": {
+            "command": "npx",
+            "args": ["-y", "@modelcontextprotocol/server-memory"]
+        },
+        "filesystem": {
+            "command": "npx",
+            "args": ["-y", "@modelcontextprotocol/server-filesystem", "/path/to/allowed/files"]
+        },
+        "github": {
+            "command": "npx",
+            "args": ["-y", "@modelcontextprotocol/server-github"],
+            "env": {
+                "GITHUB_PERSONAL_ACCESS_TOKEN": "<YOUR_TOKEN>"
+            }
+        }   
+    }
+}
