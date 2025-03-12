@@ -8,8 +8,6 @@
         "build": "tsc && copyfiles -u 1 src/test.txt dist",
         "start:server": "node --es-module-specifier-resolution=node dist/server.js",
         "start:client": "node --es-module-specifier-resolution=node dist/client.js",
-        "dev:server": "ts-node src/server.ts",
-        "dev:client": "ts-node --esm src/client.ts",
         "prestart:client": "npm run build",
         "clean": "rm -rf dist"
     },
@@ -22,10 +20,13 @@
     "license": "MIT",
     "dependencies": {
         "@modelcontextprotocol/sdk": "latest",
+        "@modelcontextprotocol/server-everything": "^2025.1.14",
         "axios": "^1.8.2",
+        "express": "^4.21.2",
         "zod": "^3.22.4"
     },
     "devDependencies": {
+        "@types/express": "^5.0.0",
         "@types/node": "^20.11.0",
         "copyfiles": "^2.4.1",
         "nodemon": "^3.1.9",

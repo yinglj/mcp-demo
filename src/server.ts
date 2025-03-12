@@ -1,14 +1,33 @@
 import { McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import * as fs from "fs/promises";
 import { fileURLToPath } from "url";
 import { dirname, join, resolve } from "path";
+import express from 'express';
+import { z } from "zod";
 
 // 定义服务器基本信息
 const server = new McpServer({
   name: "LocalFileServer",
   version: "1.0.0",
 });
+
+const app = express();
+let transport: SSEServerTransport;
+app.get("/sse", async (req, res) => {
+  transport = new SSEServerTransport("/messages", res);
+  await server.connect(transport);
+});
+
+app.post("/messages", async (req, res) => {
+  // Note: to support multiple simultaneous connections, these messages will
+  // need to be routed to a specific matching transport. (This logic isn't
+  // implemented here, for simplicity.)
+  await transport.handlePostMessage(req, res);
+});
+
+app.listen(3001);
 
 // 配置允许访问的本地目录
 const BASE_DIR = dirname(fileURLToPath(import.meta.url));
@@ -40,6 +59,21 @@ async function readFileContent(fullPath: string): Promise<string> {
   }
 }
 
+server.tool(
+    "query bill",
+    { message: z.string() },
+    async ({ message }) => ({
+      content: [{ type: "text", text: `Tool echo: ${message}` }]
+    })
+  );
+
+server.tool(
+    "modify bill",
+    { message: z.string() },
+    async ({ message }) => ({
+      content: [{ type: "text", text: `Tool echo: ${message}` }]
+    })
+  );
 // 定义文件资源模板
 server.resource(
   "file",

@@ -1,15 +1,49 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import axios from "axios";
+import * as fs from "fs/promises";
+import { join } from "path";
+
+// 读取配置文件
+interface McpServerConfig {
+  command: string;
+  args: string[];
+}
+
+interface Config {
+  mcpServers: Record<string, McpServerConfig>;
+  defaultServer: string;
+}
+
+async function loadConfig(): Promise<Config> {
+  const configPath = join(process.cwd(), "mcp_server_config.json");
+  try {
+    const configData = await fs.readFile(configPath, "utf-8");
+    return JSON.parse(configData) as Config;
+  } catch (error) {
+    console.error("DEBUG: Failed to load mcp_server_config.json:", error);
+    throw new Error("Configuration file not found or invalid");
+  }
+}
 
 // Ollama API 配置
 const OLLAMA_API_URL = "http://localhost:11434/api/chat";
 const OLLAMA_MODEL = "deepseek-r1:1.5b";
 
 async function main() {
+  const config = await loadConfig();
+  const serverName = process.env.MCP_SERVER || config.defaultServer;
+
+  if (!config.mcpServers[serverName]) {
+    throw new Error(`Server "${serverName}" not found in config`);
+  }
+
+  const serverConfig = config.mcpServers[serverName];
+  console.log(`DEBUG: Connecting to server: ${serverName}`);
+
   const fileTransport = new StdioClientTransport({
-    command: "node",
-    args: ["dist/server.js"],
+    command: serverConfig.command,
+    args: serverConfig.args,
   });
 
   const client = new Client(
@@ -33,10 +67,9 @@ async function main() {
     console.log("DEBUG: Requesting resource...");
     const resource = await client.readResource({ uri: "file:///test.txt" });
 
-    // 类型断言或检查
-    const fileContent = resource.contents[0]?.text;
+    const fileContent = resource.contents[0]?.text; 
     if (typeof fileContent !== "string") {
-      throw new Error("File content is not a string");
+        throw new Error("File content is not a string");
     }
 
     console.log("File content from server:", fileContent);

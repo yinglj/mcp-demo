@@ -1,0 +1,18 @@
+{
+    "defaultServer": "localFileServer",
+    "mcpServers": {
+        "localFileServer": {
+            "command": "node",
+            "args": [
+                "dist/server.js"
+            ]
+        },
+        "everything": {
+            "command": "npx",
+            "args": [
+                "-y",
+                "@modelcontextprotocol/server-everything"
+            ]
+        }
+    }
+}
