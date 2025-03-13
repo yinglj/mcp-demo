@@ -1,0 +1,27 @@
+{
+    "name": "mcp-server",
+    "version": "0.1.0",
+    "description": "A Model Context Protocol server example",
+    "private": true,
+    "type": "module",
+    "bin": {
+        "mcp-server": "./dist/index.js"
+    },
+    "files": [
+        "build"
+    ],
+    "scripts": {
+        "build": "tsc && node -e \"require('fs').chmodSync('dist/index.js', '755')\"",
+        "prepare": "npm run build",
+        "watch": "tsc --watch",
+        "inspector": "npx @modelcontextprotocol/inspector dist/index.js"
+    },
+    "dependencies": {
+        "@modelcontextprotocol/sdk": "0.6.0",
+        "@types/express": "^5.0.0"
+    },
+    "devDependencies": {
+        "@types/node": "^20.11.24",
+        "typescript": "^5.3.3"
+    }
+}
