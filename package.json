@@ -4,7 +4,10 @@
   "scripts": {
     "start": "ts-node src/server.ts",
     "build": "tsc",
-    "start:prod": "node dist/server.js"
+    "start:prod": "node dist/server.js",
+    "cleanup": "rm -rf dist",
+    "cleanall": "rm -rf dist && rm -rf node_modules",
+    "all": "npm run cleanup && npm run uninstall && npm install && npm run build && npm run start:prod"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",

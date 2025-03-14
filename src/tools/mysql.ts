@@ -1,5 +1,5 @@
 import mysql from "mysql2/promise";
-import { CreateTableArgsSchema, DeleteArgsSchema, InsertArgsSchema, QueryArgsSchema, TableInfoArgsSchema, UpdateArgsSchema } from "../types/schemas";
+import { QueryArgsSchema, TableInfoArgsSchema, InsertArgsSchema, UpdateArgsSchema, DeleteArgsSchema, CreateTableArgsSchema } from "../types/schemas";
 import { z } from "zod";
 import { logger } from "./logger";
 import { config } from "./config";

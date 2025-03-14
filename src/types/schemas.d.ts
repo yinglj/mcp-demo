@@ -1,45 +1,47 @@
+// src/types/schemas.d.ts
 import { z } from "zod";
 
-export const QueryArgsSchema = z.object({
-  query: z.string().describe("需要执行的 SQL 查询语句"),
-  params: z.array(z.unknown()).optional().describe("查询参数，用于防止 SQL 注入"),
-});
+// 声明 QueryArgsSchema 的类型
+export declare const QueryArgsSchema: z.ZodObject<{
+  query: z.ZodString;
+  params: z.ZodOptional<z.ZodArray<z.ZodUnknown>>;
+}>;
 
-export const TableInfoArgsSchema = z.object({
-  database: z.string().describe("目标数据库名称"),
-  table: z.string().describe("目标表名称"),
-});
+// 声明 TableInfoArgsSchema 的类型
+export declare const TableInfoArgsSchema: z.ZodObject<{
+  database: z.ZodNumber;
+  table: z.ZodString;
+}>;
 
-export const InsertArgsSchema = z.object({
-  table: z.string().describe("目标表名"),
-  data: z.record(z.unknown()).describe("要插入的数据对象"),
-});
+// 声明 InsertArgsSchema 的类型
+export declare const InsertArgsSchema: z.ZodObject<{
+  table: z.ZodString;
+  data: z.ZodRecord<z.ZodString, z.ZodUnknown>;
+}>;
 
-export const UpdateArgsSchema = z.object({
-  table: z.string().describe("目标表名"),
-  data: z.record(z.unknown()).describe("要更新的数据对象"),
-  condition: z.string().describe("WHERE 条件，例如 'id = ?'"),
-  params: z.array(z.unknown()).optional().describe("条件参数，用于防止 SQL 注入"),
-});
+// 声明 UpdateArgsSchema 的类型
+export declare const UpdateArgsSchema: z.ZodObject<{
+  table: z.ZodString;
+  data: z.ZodRecord<z.ZodString, z.ZodUnknown>;
+  condition: z.ZodString;
+  params: z.ZodOptional<z.ZodArray<z.ZodUnknown>>;
+}>;
 
-export const DeleteArgsSchema = z.object({
-  table: z.string().describe("目标表名"),
-  condition: z.string().describe("WHERE 条件，例如 'id = ?'"),
-  params: z.array(z.unknown()).optional().describe("条件参数，用于防止 SQL 注入"),
-});
+// 声明 DeleteArgsSchema 的类型
+export declare const DeleteArgsSchema: z.ZodObject<{
+  table: z.ZodString;
+  condition: z.ZodString;
+  params: z.ZodOptional<z.ZodArray<z.ZodUnknown>>;
+}>;
 
-export const CreateTableArgsSchema = z.object({
-  table: z.string().describe("要创建的表名"),
-  columns: z
-    .array(
-      z.object({
-        name: z.string().describe("列名"),
-        type: z.string().describe("列类型，例如 'VARCHAR(255)' 或 'INT'"),
-        constraints: z
-          .string()
-          .optional()
-          .describe("列约束，例如 'NOT NULL' 或 'PRIMARY KEY'"),
-      })
-    )
-    .describe("表列定义"),
-});
+// 声明 CreateTableArgsSchema 的类型
+export declare const CreateTableArgsSchema: z.ZodObject<{
+  table: z.ZodString;
+  columns: z.ZodArray<
+    z.ZodObject<{
+      name: z.ZodString;
+      type: z.ZodString;
+      constraints: z.ZodOptional<z.ZodString>;
+    }>
+  >;
+}>;
