@@ -1,5 +1,5 @@
 import mysql from "mysql2/promise";
-import { QueryArgsSchema, TableInfoArgsSchema } from "../types/schemas";
+import { CreateTableArgsSchema, DeleteArgsSchema, InsertArgsSchema, QueryArgsSchema, TableInfoArgsSchema, UpdateArgsSchema } from "../types/schemas";
 import { z } from "zod";
 import { logger } from "./logger";
 import { config } from "./config";
@@ -16,41 +16,6 @@ const pool = mysql.createPool({
   connectionLimit: 10,
   queueLimit: 0,
   connectTimeout: 10000,
-});
-
-// 扩展的 Zod 模式
-const InsertArgsSchema = z.object({
-  table: z.string().describe("目标表名"),
-  data: z.record(z.unknown()).describe("要插入的数据对象"),
-});
-
-const UpdateArgsSchema = z.object({
-  table: z.string().describe("目标表名"),
-  data: z.record(z.unknown()).describe("要更新的数据对象"),
-  condition: z.string().describe("WHERE 条件，例如 'id = ?'"),
-  params: z.array(z.unknown()).optional().describe("条件参数，用于防止 SQL 注入"),
-});
-
-const DeleteArgsSchema = z.object({
-  table: z.string().describe("目标表名"),
-  condition: z.string().describe("WHERE 条件，例如 'id = ?'"),
-  params: z.array(z.unknown()).optional().describe("条件参数，用于防止 SQL 注入"),
-});
-
-const CreateTableArgsSchema = z.object({
-  table: z.string().describe("要创建的表名"),
-  columns: z
-    .array(
-      z.object({
-        name: z.string().describe("列名"),
-        type: z.string().describe("列类型，例如 'VARCHAR(255)' 或 'INT'"),
-        constraints: z
-          .string()
-          .optional()
-          .describe("列约束，例如 'NOT NULL' 或 'PRIMARY KEY'"),
-      })
-    )
-    .describe("表列定义"),
 });
 
 export const mysqlTools = {
