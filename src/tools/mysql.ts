@@ -56,6 +56,7 @@ export const mysqlTools = {
         `,
           [database, table]
         );
+        logger.info(`execute_query result: data: ${rows}`);
         return { success: true, data: rows };
       } catch (error: any) {
         logger.error("Get table schema failed", { database, table, error });
