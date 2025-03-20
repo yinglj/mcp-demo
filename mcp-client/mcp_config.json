@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "mysql_server": {
+      "command": "sse",
+      "args": [
+        "http://localhost:3001/sse"
+      ]
+    }
+  }
+}
