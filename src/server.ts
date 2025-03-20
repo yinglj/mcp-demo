@@ -8,6 +8,8 @@ import {
   ListToolsRequestSchema,
   ListResourcesRequestSchema,
   ReadResourceRequestSchema,
+  ListPromptsRequestSchema,
+  GetPromptRequestSchema,
   McpError,
   ToolSchema,
 } from "@modelcontextprotocol/sdk/types.js";
@@ -33,6 +35,7 @@ const server = new Server(
     capabilities: {
       tools: {},
       resources: {},
+      prompts: {},
     },
   }
 );
@@ -129,13 +132,49 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
         {
           uri: "mysql://tables",
           mimeType: "application/json",
-          blob: JSON.stringify({ message: "List of tables (placeholder)" }),
+          text: JSON.stringify({ message: "List of tables (placeholder)" }),
         },
       ],
     };
   }
 
   throw new McpError(ErrorCode.MethodNotFound, `Unknown resource: ${uri}`);
+});
+
+server.setRequestHandler(ListPromptsRequestSchema, async () => {
+  return {
+    prompts: [
+      {
+        name: "example-prompt",
+        description: "An example prompt template",
+        arguments: [
+          {
+            name: "arg1",
+            description: "Example argument",
+            required: true,
+          },
+        ],
+      },
+    ],
+  };
+});
+
+server.setRequestHandler(GetPromptRequestSchema, async (request) => {
+  if (request.params.name !== "example-prompt") {
+    throw new Error("Unknown prompt");
+  }
+  return {
+    description: "Example prompt",
+    messages: [
+      {
+        role: "user",
+        content: {
+          type: "text",
+          text: "Example prompt text",
+        },
+      },
+    ],
+  };
 });
 
 // 初始化 Express 应用

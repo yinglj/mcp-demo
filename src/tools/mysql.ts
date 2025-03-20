@@ -46,6 +46,7 @@ export const mysqlTools = {
     inputSchema: TableInfoArgsSchema,
     handler: async ({ database, table }: z.infer<typeof TableInfoArgsSchema>) => {
       const connection = await pool.getConnection();
+      logger.info(`execute_query: ${database} params: ${table}`);
       try {
         const [rows] = await connection.query(
           `
