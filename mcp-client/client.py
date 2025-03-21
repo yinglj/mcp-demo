@@ -566,13 +566,75 @@ class MCPClient:
             print(f"Error processing query: {str(e)}")
             return f"Failed to process query: {str(e)}"
 
+    async def list_templates(self, server_name: Optional[str] = None) -> str:
+        """通过 list_resource_templates 方法列出指定服务器（或所有服务器）的模板"""
+        if not self.server_info:
+            return "No servers available."
+
+        if server_name and server_name not in self.server_info:
+            return f"Server {server_name} not found."
+
+        # 如果未指定服务器，列出所有服务器的模板
+        target_servers = [server_name] if server_name else self.server_info.keys()
+        output = []
+
+        for srv in target_servers:
+            session = self.sessions[srv]
+            try:
+                # 调用 list_resource_templates 方法
+                response = await session.request("list_resource_templates", {})
+                print(f"Raw response from list_resource_templates: {response}")
+
+                # 解析响应
+                if hasattr(response, "templates") and response.templates:
+                    templates = response.templates
+                    if not templates:
+                        output.append(f"No templates found on server {srv}.")
+                        continue
+
+                    output.append(f"\nTemplates on server {srv}:")
+                    for template in templates:
+                        output.append(f"- Name: {template['name']}")
+                        output.append(f"  Description: {template['description']}")
+                        output.append(f"  Arguments: {json.dumps(template['arguments'], ensure_ascii=False)}")
+                        output.append("")
+                else:
+                    output.append(f"No templates returned from server {srv}.")
+            except Exception as e:
+                output.append(f"Failed to list templates on server {srv}: {str(e)}")
+
+            # 同时列出 prompt 模板（作为备用）
+            prompts = self.server_info[srv]["prompts"]
+            if prompts:
+                output.append(f"Prompt templates on server {srv}:")
+                for prompt in prompts:
+                    output.append(f"- Name: {prompt['name']}")
+                    output.append(f"  Description: {prompt['description']}")
+                    output.append(f"  Arguments: {json.dumps(prompt['arguments'], ensure_ascii=False)}")
+                    output.append("")
+
+        return "\n".join(output)
+
     async def chat_loop(self):
         """交互式聊天循环"""
         print("Enter your query (or type 'exit' to quit):")
+        print("Special commands:")
+        print("- 'list templates': List available templates on all servers")
+        print("- 'list templates <server_name>': List templates on a specific server")
         while True:
-            query = input("> ")
+            query = input("> ").strip()
             if query.lower() == "exit":
                 break
+
+            # 处理特殊命令：列出模板
+            if query.lower().startswith("list templates"):
+                parts = query.split()
+                server_name = parts[2] if len(parts) > 2 else None
+                result = await self.list_templates(server_name)
+                print(result)
+                continue
+
+            # 处理普通查询
             result = await self.process_query(query)
             print(result)
 

@@ -10,8 +10,11 @@ import {
   ReadResourceRequestSchema,
   ListPromptsRequestSchema,
   GetPromptRequestSchema,
+  ListResourceTemplatesRequestSchema,
   McpError,
   ToolSchema,
+  ListPromptsResult,
+  GetPromptResult,
 } from "@modelcontextprotocol/sdk/types.js";
 import express from "express";
 import { mysqlTools, shutdownMySQL } from "./tools/mysql";
@@ -24,6 +27,169 @@ import { logger } from "./tools/logger";
 interface ToolContext {
   role?: string;
 }
+
+// 定义 Prompt 数据
+const PROMPTS: Record<string, { description: string; messages: Array<{ role: "user" | "assistant"; content: { type: "text"; text: string } }>; arguments: Array<{ name: string; description: string; required: boolean }> }> = {
+  "execute-sql-query": {
+    description: "A prompt for executing a SQL query on the database",
+    messages: [
+      {
+        role: "user" as const,
+        content: {
+          type: "text",
+          text: "Execute the following SQL query: {{query}} with parameters {{params}}",
+        },
+      },
+    ],
+    arguments: [
+      {
+        name: "query",
+        description: "The SQL query to execute (e.g., 'SELECT * FROM users')",
+        required: true,
+      },
+      {
+        name: "params",
+        description: "Optional parameters for the SQL query to prevent SQL injection",
+        required: false,
+      },
+    ],
+  },
+  "get-table-schema": {
+    description: "A prompt for retrieving the schema of a specific table in a database",
+    messages: [
+      {
+        role: "user" as const,
+        content: {
+          type: "text",
+          text: "Retrieve the schema of table {{table}} in database {{database}}",
+        },
+      },
+    ],
+    arguments: [
+      {
+        name: "database",
+        description: "The name of the database (e.g., 'mysql')",
+        required: true,
+      },
+      {
+        name: "table",
+        description: "The name of the table (e.g., 'user')",
+        required: true,
+      },
+    ],
+  },
+  "insert-data": {
+    description: "A prompt for inserting data into a specific table",
+    messages: [
+      {
+        role: "user" as const,
+        content: {
+          type: "text",
+          text: "Insert the following data into table {{table}}: {{data}}",
+        },
+      },
+    ],
+    arguments: [
+      {
+        name: "table",
+        description: "The name of the table to insert data into (e.g., 'users')",
+        required: true,
+      },
+      {
+        name: "data",
+        description: "The data to insert as a JSON object (e.g., '{\"name\": \"John\", \"age\": 30}')",
+        required: true,
+      },
+    ],
+  },
+  "update-data": {
+    description: "A prompt for updating data in a specific table",
+    messages: [
+      {
+        role: "user" as const,
+        content: {
+          type: "text",
+          text: "Update table {{table}} with data {{data}} where {{condition}} with parameters {{params}}",
+        },
+      },
+    ],
+    arguments: [
+      {
+        name: "table",
+        description: "The name of the table to update (e.g., 'users')",
+        required: true,
+      },
+      {
+        name: "data",
+        description: "The data to update as a JSON object (e.g., '{\"age\": 31}')",
+        required: true,
+      },
+      {
+        name: "condition",
+        description: "The WHERE condition for the update (e.g., 'id = ?')",
+        required: true,
+      },
+      {
+        name: "params",
+        description: "Optional parameters for the condition to prevent SQL injection",
+        required: false,
+      },
+    ],
+  },
+  "delete-data": {
+    description: "A prompt for deleting data from a specific table",
+    messages: [
+      {
+        role: "user" as const,
+        content: {
+          type: "text",
+          text: "Delete data from table {{table}} where {{condition}} with parameters {{params}}",
+        },
+      },
+    ],
+    arguments: [
+      {
+        name: "table",
+        description: "The name of the table to delete data from (e.g., 'users')",
+        required: true,
+      },
+      {
+        name: "condition",
+        description: "The WHERE condition for the deletion (e.g., 'id = ?')",
+        required: true,
+      },
+      {
+        name: "params",
+        description: "Optional parameters for the condition to prevent SQL injection",
+        required: false,
+      },
+    ],
+  },
+  "create-table": {
+    description: "A prompt for creating a new table in the database",
+    messages: [
+      {
+        role: "user" as const,
+        content: {
+          type: "text",
+          text: "Create a new table named {{table}} with columns {{columns}}",
+        },
+      },
+    ],
+    arguments: [
+      {
+        name: "table",
+        description: "The name of the table to create (e.g., 'employees')",
+        required: true,
+      },
+      {
+        name: "columns",
+        description: "The columns definition as a JSON array (e.g., '[{\"name\": \"id\", \"type\": \"INT\", \"constraints\": \"PRIMARY KEY\"}]')",
+        required: true,
+      },
+    ],
+  },
+};
 
 // 创建 MCP Server
 const server = new Server(
@@ -105,10 +271,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       ],
     };
   } catch (error: any) {
-    logger.error("Tool execution failed", { tool: name, error });
+    logger.error("Tool execution failed", { tool: name, error: error.message });
     throw new McpError(
       ErrorCode.InternalError,
-      `Error: ${error.message || String(error)}`
+      `Error executing tool ${name}: ${error.message || String(error)}`
     );
   }
 });
@@ -128,6 +294,22 @@ server.setRequestHandler(ListResourcesRequestSchema, async () => {
   };
 });
 
+// 定义 getPromptHandler 函数，以便复用
+const getPromptHandler = async (name: string): Promise<GetPromptResult> => {
+  logger.info("Getting prompt", { name });
+
+  const prompt = PROMPTS[name];
+  if (!prompt) {
+    logger.warn("Prompt not found", { name });
+    throw new McpError(ErrorCode.MethodNotFound, `Unknown prompt: ${name}`);
+  }
+
+  return {
+    description: prompt.description,
+    messages: prompt.messages,
+  };
+};
+
 // 处理资源读取请求
 server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
   const { uri } = request.params;
@@ -146,216 +328,73 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
     };
   }
 
+  // 支持动态资源读取，例如 mysql://prompts/execute-sql-query
+  const promptMatch = uri.match(/^mysql:\/\/prompts\/(.+)$/);
+  if (promptMatch) {
+    const promptName = promptMatch[1];
+    try {
+      const prompt = await getPromptHandler(promptName);
+      return {
+        contents: [
+          {
+            uri: uri,
+            mimeType: "application/json",
+            text: JSON.stringify({
+              name: promptName,
+              description: prompt.description,
+              messages: prompt.messages,
+            }, null, 2),
+          },
+        ],
+      };
+    } catch (error: any) {
+      logger.error("Failed to read prompt resource", { uri, error: error.message });
+      throw error;
+    }
+  }
+
+  logger.warn("Unknown resource requested", { uri });
   throw new McpError(ErrorCode.MethodNotFound, `Unknown resource: ${uri}`);
 });
 
-// 处理 prompt 列表请求
-server.setRequestHandler(ListPromptsRequestSchema, async () => {
+// 定义 listPromptsHandler 函数，以便复用
+const listPromptsHandler = async (): Promise<ListPromptsResult> => {
   logger.info("Listing prompts");
   return {
-    prompts: [
-      {
-        name: "execute-sql-query",
-        description: "A prompt for executing a SQL query on the database",
-        arguments: [
-          {
-            name: "query",
-            description: "The SQL query to execute (e.g., 'SELECT * FROM users')",
-            required: true,
-          },
-          {
-            name: "params",
-            description: "Optional parameters for the SQL query to prevent SQL injection",
-            required: false,
-          },
-        ],
-      },
-      {
-        name: "get-table-schema",
-        description: "A prompt for retrieving the schema of a specific table in a database",
-        arguments: [
-          {
-            name: "database",
-            description: "The name of the database (e.g., 'mysql')",
-            required: true,
-          },
-          {
-            name: "table",
-            description: "The name of the table (e.g., 'user')",
-            required: true,
-          },
-        ],
-      },
-      {
-        name: "insert-data",
-        description: "A prompt for inserting data into a specific table",
-        arguments: [
-          {
-            name: "table",
-            description: "The name of the table to insert data into (e.g., 'users')",
-            required: true,
-          },
-          {
-            name: "data",
-            description: "The data to insert as a JSON object (e.g., '{\"name\": \"John\", \"age\": 30}')",
-            required: true,
-          },
-        ],
-      },
-      {
-        name: "update-data",
-        description: "A prompt for updating data in a specific table",
-        arguments: [
-          {
-            name: "table",
-            description: "The name of the table to update (e.g., 'users')",
-            required: true,
-          },
-          {
-            name: "data",
-            description: "The data to update as a JSON object (e.g., '{\"age\": 31}')",
-            required: true,
-          },
-          {
-            name: "condition",
-            description: "The WHERE condition for the update (e.g., 'id = ?')",
-            required: true,
-          },
-          {
-            name: "params",
-            description: "Optional parameters for the condition to prevent SQL injection",
-            required: false,
-          },
-        ],
-      },
-      {
-        name: "delete-data",
-        description: "A prompt for deleting data from a specific table",
-        arguments: [
-          {
-            name: "table",
-            description: "The name of the table to delete data from (e.g., 'users')",
-            required: true,
-          },
-          {
-            name: "condition",
-            description: "The WHERE condition for the deletion (e.g., 'id = ?')",
-            required: true,
-          },
-          {
-            name: "params",
-            description: "Optional parameters for the condition to prevent SQL injection",
-            required: false,
-          },
-        ],
-      },
-      {
-        name: "create-table",
-        description: "A prompt for creating a new table in the database",
-        arguments: [
-          {
-            name: "table",
-            description: "The name of the table to create (e.g., 'employees')",
-            required: true,
-          },
-          {
-            name: "columns",
-            description: "The columns definition as a JSON array (e.g., '[{\"name\": \"id\", \"type\": \"INT\", \"constraints\": \"PRIMARY KEY\"}]')",
-            required: true,
-          },
-        ],
-      },
-    ],
+    prompts: Object.entries(PROMPTS).map(([name, prompt]) => ({
+      name,
+      description: prompt.description,
+      arguments: prompt.arguments,
+    })),
   };
-});
+};
+
+// 处理 prompt 列表请求
+server.setRequestHandler(ListPromptsRequestSchema, listPromptsHandler);
 
 // 处理获取 prompt 请求
 server.setRequestHandler(GetPromptRequestSchema, async (request) => {
   const { name } = request.params;
-  logger.info("Getting prompt", { name });
+  return await getPromptHandler(name);
+});
 
-  switch (name) {
-    case "execute-sql-query":
-      return {
-        description: "A prompt for executing a SQL query on the database",
-        messages: [
-          {
-            role: "user",
-            content: {
-              type: "text",
-              text: "Execute the following SQL query: {{query}} with parameters {{params}}",
-            },
-          },
-        ],
-      };
-    case "get-table-schema":
-      return {
-        description: "A prompt for retrieving the schema of a specific table in a database",
-        messages: [
-          {
-            role: "user",
-            content: {
-              type: "text",
-              text: "Retrieve the schema of table {{table}} in database {{database}}",
-            },
-          },
-        ],
-      };
-    case "insert-data":
-      return {
-        description: "A prompt for inserting data into a specific table",
-        messages: [
-          {
-            role: "user",
-            content: {
-              type: "text",
-              text: "Insert the following data into table {{table}}: {{data}}",
-            },
-          },
-        ],
-      };
-    case "update-data":
-      return {
-        description: "A prompt for updating data in a specific table",
-        messages: [
-          {
-            role: "user",
-            content: {
-              type: "text",
-              text: "Update table {{table}} with data {{data}} where {{condition}} with parameters {{params}}",
-            },
-          },
-        ],
-      };
-    case "delete-data":
-      return {
-        description: "A prompt for deleting data from a specific table",
-        messages: [
-          {
-            role: "user",
-            content: {
-              type: "text",
-              text: "Delete data from table {{table}} where {{condition}} with parameters {{params}}",
-            },
-          },
-        ],
-      };
-    case "create-table":
-      return {
-        description: "A prompt for creating a new table in the database",
-        messages: [
-          {
-            role: "user",
-            content: {
-              type: "text",
-              text: "Create a new table named {{table}} with columns {{columns}}",
-            },
-          },
-        ],
-      };
-    default:
-      throw new McpError(ErrorCode.MethodNotFound, `Unknown prompt: ${name}`);
-  }
+// 新增 list_resource_templates 方法
+server.setRequestHandler(ListResourceTemplatesRequestSchema, async () => {
+  logger.info("Handling list_resource_templates request");
+  // 获取所有 prompt 作为资源模板的基础
+  const { prompts } = await listPromptsHandler();
+
+  // 明确定义 prompt 的类型
+  const resourceTemplates = prompts.map((prompt: { name: string; description?: string }) => ({
+    uriTemplate: `mysql://prompts/{prompt_name}`, // 动态 URI 模板
+    name: `Prompt: ${prompt.name}`,
+    mimeType: "application/json",
+    description: prompt.description || "No description available",
+  }));
+
+  return {
+    resourceTemplates: resourceTemplates,
+  };
 });
 
 // 初始化 Express 应用
@@ -399,7 +438,7 @@ async function shutdown() {
 
 // 运行服务器
 startServer().catch((error) => {
-  logger.error("Server startup failed", { error });
+  logger.error("Server startup failed", { error: error.message });
   process.exit(1);
 });
 
