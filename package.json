@@ -1,0 +1,25 @@
+{
+  "name": "mcp-project-root",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "mcp-client",
+    "mcp-server"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "start:client": "npm start -w mcp-client",
+    "start:server": "npm start -w mcp-server"
+  },
+  "devDependencies": {
+    "ts-node": "^10.9.2",
+    "tsconfig-paths": "^4.2.0",
+    "typescript": "^5.8.2"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "@modelcontextprotocol/sdk": "^1.6.1",
+    "dotenv": "^16.4.7",
+    "pkce-challenge": "^4.1.0"
+  }
+}
