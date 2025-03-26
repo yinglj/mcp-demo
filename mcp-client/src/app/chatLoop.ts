@@ -10,21 +10,39 @@ export async function chatLoop(queryProcessor: QueryProcessor, templateLister: T
 
   console.log("Enter your query (or type 'exit' to quit):");
   console.log("Special commands:");
-  console.log("- 'list templates': List available templates on all servers");
-  console.log("- 'list templates <server_name>': List templates on a specific server");
+  console.log("- 'list templates': List all templates on all servers");
+  console.log("- 'list templates <server_name>': List all templates on a specific server");
+  console.log("- 'list tools': List all tools on all servers");
+  console.log("- 'list tools <server_name>': List tools on a specific server");
+  console.log("- 'list prompts': List all prompts on all servers");
+  console.log("- 'list prompts <server_name>': List prompts on a specific server");
 
   while (true) {
     const query = await rl.question("> ");
-    const trimmedQuery = query.trim();
+    const trimmedQuery = query.trim().toLowerCase();
 
-    if (trimmedQuery.toLowerCase() === "exit") {
+    if (trimmedQuery === "exit") {
       break;
     }
 
-    if (trimmedQuery.toLowerCase().startsWith("list templates")) {
-      const parts = trimmedQuery.split(/\s+/);
+    const parts = trimmedQuery.split(/\s+/);
+    if (parts[0] === "list") {
       const serverName = parts.length > 2 ? parts[2] : undefined;
-      const result = await templateLister.listTemplates(serverName);
+      let result: string;
+
+      switch (parts[1]) {
+        case "templates":
+          result = await templateLister.listTemplates(serverName, "all");
+          break;
+        case "tools":
+          result = await templateLister.listTemplates(serverName, "tools");
+          break;
+        case "prompts":
+          result = await templateLister.listTemplates(serverName, "prompts");
+          break;
+        default:
+          result = "Unknown command. Use 'list templates', 'list tools', or 'list prompts'.";
+      }
       console.log(result);
       continue;
     }

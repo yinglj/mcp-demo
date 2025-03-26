@@ -1,6 +1,7 @@
 // mcp-client/src/core/llmClient.ts
 
 import { OpenAI } from "openai";
+import { HttpsProxyAgent } from "https-proxy-agent";
 import { Anthropic } from "@anthropic-ai/sdk";
 import { cleanMarkdownJson } from "../common/markdownUtils";
 
@@ -19,7 +20,22 @@ export class LLMClient {
   private preference: string;
 
   constructor(preference: string) {
-    this.openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    console.info(`process.env.OPENAI_API_KEY: ${process.env.OPENAI_API_KEY}`);
+    console.info(`process.env.ANTHROPIC_API_KEY: ${process.env.ANTHROPIC_API_KEY}`);
+    const openai_config = {
+      apiKey: process.env.OPENAI_API_KEY,
+    };
+    // 获取环境变量中的代理设置
+    const httpProxy = process.env.http_proxy || process.env.HTTP_PROXY;
+    const httpsProxy = process.env.https_proxy || process.env.HTTPS_PROXY;
+    if (httpProxy || httpsProxy) {
+      console.info(`httpProxy: ${httpProxy}`);
+      const httpAgent = new HttpsProxyAgent(httpProxy || httpsProxy||"");
+      this.openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, httpAgent: httpAgent });
+    }else
+    {
+      this.openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    }
     this.anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
     this.preference = preference;
   }
@@ -47,7 +63,7 @@ export class LLMClient {
         \n`;
       }
       const userMessage = `User query: ${query}\nWhich server should be used to handle this query?`;
-
+      console.info(`User query: ${query}\nWhich server should be used to handle this query?this.preference: ${this.preference}`);
       let selectedServer: string;
       if (this.preference === "openai") {
         const response = await this.openai.chat.completions.create({

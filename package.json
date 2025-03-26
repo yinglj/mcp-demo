@@ -20,6 +20,7 @@
     "@anthropic-ai/sdk": "^0.39.0",
     "@modelcontextprotocol/sdk": "^1.6.1",
     "dotenv": "^16.4.7",
+    "https-proxy-agent": "^7.0.6",
     "mysql2": "^3.14.0",
     "pkce-challenge": "^4.1.0"
   }

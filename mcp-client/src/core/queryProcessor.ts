@@ -1,3 +1,5 @@
+// mcp-client/src/core/queryProcessor.ts
+
 import { LLMClient } from "./llmClient";
 import { ServerConnection } from "../infra/serverConnection";
 import { PromptMessage } from "@modelcontextprotocol/sdk/types.js";
@@ -49,7 +51,7 @@ export class QueryProcessor {
             ...value,
             messages: value.messages.map((msg) => ({
               role: msg.role,
-              content: msg.content.text, // Map content to string
+              content: msg.content.text,
             })),
           },
         ])
@@ -102,6 +104,7 @@ export class QueryProcessor {
   }
 
   async processQuery(query: string): Promise<string> {
+    console.log(`processQuery: ${query}`);
     try {
       const transformedServerInfo = new Map(
         Array.from(this.serverConnection.serverInfo.entries()).map(([key, value]) => [
@@ -115,7 +118,7 @@ export class QueryProcessor {
                   ...templateValue,
                   messages: templateValue.messages.map((msg) => ({
                     role: msg.role,
-                    content: msg.content.text, // Transform content to string
+                    content: msg.content.text,
                   })),
                 },
               ])
@@ -123,11 +126,14 @@ export class QueryProcessor {
           },
         ])
       );
+      console.log(`begin this.llmClient.selectServer: ${query}`);
       const selectedServer = await this.llmClient.selectServer(query, transformedServerInfo);
       if (!selectedServer) {
+        console.log(`No suitable MCP server found to handle this query.`);
         return "No suitable MCP server found to handle this query.";
       }
-
+      console.log(`end this.llmClient.selectServer: ${query}`);
+      
       const session = this.serverConnection.getSession(selectedServer);
       if (!session) {
         return `Session for server ${selectedServer} not found.`;
@@ -138,8 +144,8 @@ export class QueryProcessor {
         return `Server info for ${selectedServer} not found.`;
       }
 
-      const tools = serverInfo.tools;
       console.log(`Selected server: ${selectedServer}`);
+      const tools = serverInfo.tools;
       console.log(`Available tools: ${JSON.stringify(tools.map((tool: { name: string }) => tool.name))}`);
 
       const correctedQuery = query.replace("excute", "execute");
@@ -180,10 +186,11 @@ export class QueryProcessor {
       if (!schema) {
         throw new Error(`Schema for tool ${toolName} not found.`);
       }
+      console.info(`Using schema: ${JSON.stringify(schema)}, validatedArguments: ${JSON.stringify(validatedArguments)}`);
       const parsedArguments = schema.parse(validatedArguments);
       const rawResult = await session.callTool({ name: toolName }, parsedArguments);
       const result: ToolResult = {
-        content: (rawResult.content as ToolResultContent[]) || [], // Ensure content is mapped correctly
+        content: (rawResult.content as ToolResultContent[]) || [],
       };
       console.log(`Raw tool result: ${JSON.stringify(result)}`);
 
@@ -204,8 +211,13 @@ export class QueryProcessor {
       serverInfo.load = Math.min(serverInfo.load + 1.0, 100.0);
       return `Result from ${selectedServer}:\n${resultText}`;
     } catch (error) {
-      console.error(`Error processing query: ${error instanceof Error ? error.message : String(error)}`);
-      return `Failed to process query: ${error instanceof Error ? error.message : String(error)}`;
+      if (error instanceof SyntaxError && error.message.includes("JSON")) {
+        console.log(`Error parsing LLM response as JSON: ${error.message}`);
+        return "Failed to process query: LLM response is not valid JSON.";
+      } else {
+        console.error(`Error processing query: ${error instanceof Error ? error.message : String(error)}`);
+        return `Failed to process query: ${error instanceof Error ? error.message : String(error)}`;
+      }
     }
   }
 }
