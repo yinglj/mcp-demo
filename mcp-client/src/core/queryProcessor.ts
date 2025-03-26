@@ -1,6 +1,3 @@
-// mcp-client/src/core/queryProcessor.ts
-
-// import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { LLMClient } from "./llmClient";
 import { ServerConnection } from "../infra/serverConnection";
 import { PromptMessage } from "@modelcontextprotocol/sdk/types.js";

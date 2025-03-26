@@ -4,7 +4,7 @@ import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { CallToolRequestSchema, ErrorCode, ListToolsRequestSchema, McpError } from "@modelcontextprotocol/sdk/types.js";
 import { mysqlTools } from "../../infra/mysqlTools";
 import { z } from "zod";
-import { QueryArgsSchema, TableInfoArgsSchema, InsertArgsSchema, UpdateArgsSchema, DeleteArgsSchema, CreateTableArgsSchema } from "../../infra/mysqlTools.js";
+import { QueryArgsSchema, TableInfoArgsSchema, InsertArgsSchema, UpdateArgsSchema, DeleteArgsSchema, CreateTableArgsSchema } from "../../types/schemas";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import { logger } from "../../infra/logger";
 import { ToolContext } from "../../common/toolContext";
