@@ -3,6 +3,7 @@
 import { LLMClient } from "./llmClient";
 import { ServerConnection } from "../infra/serverConnection";
 import { PromptMessage } from "@modelcontextprotocol/sdk/types.js";
+import { z } from "zod";
 
 interface ServerInfo {
   tools: Array<{ name: string; description: string; inputSchema: any }>;
@@ -20,7 +21,41 @@ interface ToolResultContent {
 }
 
 interface ToolResult {
-  content: ToolResultContent[];
+  content: ToolResultContent[] | undefined;
+}
+
+// Utility function to convert JSON schema to zod schema
+function jsonSchemaToZod(jsonSchema: any): z.ZodType<any> {
+  if (!jsonSchema || typeof jsonSchema !== "object") {
+    return z.any();
+  }
+
+  if (jsonSchema.type === "object" && jsonSchema.properties) {
+    const shape: Record<string, z.ZodType<any>> = {};
+    for (const [key, prop] of Object.entries(jsonSchema.properties)) {
+      const propSchema = prop as any;
+      let zodField: z.ZodType<any>;
+
+      switch (propSchema.type) {
+        case "string":
+          zodField = z.string();
+          if (propSchema.minLength && zodField instanceof z.ZodString) {
+            zodField = zodField.min(propSchema.minLength);
+          }
+          break;
+        case "number":
+          zodField = z.number();
+          break;
+        default:
+          zodField = z.any();
+      }
+
+      shape[key] = jsonSchema.required?.includes(key) ? zodField : zodField.optional();
+    }
+    return jsonSchema.additionalProperties === false ? z.object(shape).strict() : z.object(shape);
+  }
+
+  return z.any();
 }
 
 export class QueryProcessor {
@@ -133,7 +168,7 @@ export class QueryProcessor {
         return "No suitable MCP server found to handle this query.";
       }
       console.log(`end this.llmClient.selectServer: ${query}`);
-      
+
       const session = this.serverConnection.getSession(selectedServer);
       if (!session) {
         return `Session for server ${selectedServer} not found.`;
@@ -178,25 +213,34 @@ export class QueryProcessor {
       }
 
       console.log(`Using tool: ${toolName} with arguments: ${JSON.stringify(toolArguments)}`);
-      const validatedArguments = toolArguments; // Assuming toolArguments are already valid
+      const validatedArguments = toolArguments;
       if (!validatedArguments || Object.keys(validatedArguments).length === 0) {
         throw new Error(`Invalid or missing arguments for tool: ${toolName}`);
       }
+
       const schema = tools.find((t: { name: string }) => t.name === toolName)?.inputSchema;
       if (!schema) {
         throw new Error(`Schema for tool ${toolName} not found.`);
       }
+
+      const zodSchema = jsonSchemaToZod(schema);
       console.info(`Using schema: ${JSON.stringify(schema)}, validatedArguments: ${JSON.stringify(validatedArguments)}`);
-      const parsedArguments = schema.parse(validatedArguments);
-      const rawResult = await session.callTool({ name: toolName }, parsedArguments);
-      const result: ToolResult = {
-        content: (rawResult.content as ToolResultContent[]) || [],
+      const parsedArguments = zodSchema.parse(validatedArguments);
+      console.log(`Parsed arguments after zod validation: ${JSON.stringify(parsedArguments)}`);
+
+      // Construct MCP-compliant params object
+      const toolCallParams = {
+        name: toolName,
+        arguments: parsedArguments,
+        _meta: { progressToken: 0 }, // Included as per MCP Inspector format
       };
-      console.log(`Raw tool result: ${JSON.stringify(result)}`);
+      console.log(`Calling tool with params: ${JSON.stringify(toolCallParams)}`);
+      const rawResult = await session.callTool(toolCallParams);
+      console.log(`Raw tool result: ${JSON.stringify(rawResult)}`);
 
       let resultText: string;
-      if (result.content && result.content.length > 0) {
-        const firstItem = result.content[0];
+      if (Array.isArray(rawResult.content) && rawResult.content.length > 0) {
+        const firstItem = rawResult.content[0];
         if (firstItem.type === "json" && firstItem.data) {
           resultText = JSON.stringify(firstItem.data, null, 2);
         } else if (firstItem.type === "text" && firstItem.text) {
@@ -214,6 +258,9 @@ export class QueryProcessor {
       if (error instanceof SyntaxError && error.message.includes("JSON")) {
         console.log(`Error parsing LLM response as JSON: ${error.message}`);
         return "Failed to process query: LLM response is not valid JSON.";
+      } else if (error instanceof z.ZodError) {
+        console.error(`Schema validation error: ${error.message}`);
+        return `Failed to process query: Invalid arguments - ${error.message}`;
       } else {
         console.error(`Error processing query: ${error instanceof Error ? error.message : String(error)}`);
         return `Failed to process query: ${error instanceof Error ? error.message : String(error)}`;
